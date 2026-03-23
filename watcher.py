@@ -9,6 +9,39 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from fpdf import FPDF
 from rapidfuzz import process, fuzz
+import ctypes
+from ctypes import wintypes
+
+# Win32 API setup for focus stealing
+user32 = ctypes.windll.user32
+kernel32 = ctypes.windll.kernel32
+
+def force_focus(hwnd):
+    """
+    Direct Win32 hack to force focus to a window.
+    """
+    try:
+        # 1. Show and bring to top
+        user32.ShowWindow(hwnd, 5) # SW_SHOW
+        user32.SetForegroundWindow(hwnd)
+        
+        # 2. Aggressive focus (AttachThreadInput hack)
+        # Get the thread IDs
+        foreground_thread = user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), None)
+        current_thread = kernel32.GetCurrentThreadId()
+        
+        if foreground_thread != current_thread:
+            user32.AttachThreadInput(current_thread, foreground_thread, True)
+            user32.SetForegroundWindow(hwnd)
+            user32.SetFocus(hwnd)
+            user32.AttachThreadInput(current_thread, foreground_thread, False)
+        else:
+            user32.SetForegroundWindow(hwnd)
+            user32.SetFocus(hwnd)
+            
+        print(f"Win32 focus triggered for HWND: {hwnd}")
+    except Exception as e:
+        print(f"Win32 focus error: {e}")
 
 # Configuration
 WATCH_DIR = pathlib.Path("claw").absolute()
@@ -22,36 +55,36 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
 
 class CustomerOverlay:
-    def __init__(self, customers):
+    def __init__(self, root, customers, job_file_path):
+        self.root = tk.Toplevel(root)
         self.customers = customers
+        self.file_path = job_file_path
         self.selected_customer = None
-        self.root = None
         self.search_var = None
         self.list_box = None
         
-    def show(self, job_name):
-        self.root = tk.Tk()
+        self.setup_ui()
+        
+    def setup_ui(self):
+        job_name = self.file_path.stem
         self.root.title(f"Target Customer Match - {job_name}")
         
-        # --- UI DESIGN: Sleek Overlay ---
-        # Dark theme
+        # UI DESIGN: Dark theme
         bg_color = "#1e1e1e"
         fg_color = "#ffffff"
         accent_color = "#007acc"
         
         self.root.configure(bg=bg_color)
         self.root.geometry("500x600")
-        self.root.attributes("-topmost", True) # Always on top
-        self.root.overrideredirect(False) # Keep window decorations for easy moving
+        self.root.attributes("-topmost", True)
         
-        # Centering the window
+        # Center UI
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         x = (screen_width // 2) - (500 // 2)
         y = (screen_height // 2) - (600 // 2)
         self.root.geometry(f"500x600+{x}+{y}")
 
-        # Search Bar
         tk.Label(self.root, text=f"Match Customer for: {job_name}", bg=bg_color, fg=accent_color, font=("Segoe UI", 12, "bold")).pack(pady=10)
         
         self.search_var = tk.StringVar()
@@ -60,13 +93,8 @@ class CustomerOverlay:
         search_entry = tk.Entry(self.root, textvariable=self.search_var, bg="#333333", fg=fg_color, 
                                insertbackground="white", border=0, font=("Segoe UI", 14))
         search_entry.pack(fill="x", padx=20, pady=10)
-        
-        # Force focus so user can type immediately
-        self.root.focus_force()
-        search_entry.focus_set()
-        search_entry.focus_force()
+        search_entry.focus_set() # Example 1: Use immediate focus
 
-        # List Box for matches
         frame = tk.Frame(self.root, bg=bg_color)
         frame.pack(fill="both", expand=True, padx=20, pady=10)
         
@@ -79,18 +107,22 @@ class CustomerOverlay:
         self.list_box.config(yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.list_box.yview)
 
-        # Confirm Button
         btn = tk.Button(self.root, text="Confirm Selection", bg=accent_color, fg="white", 
                         font=("Segoe UI", 12, "bold"), borderwidth=0, command=self.confirm)
         btn.pack(fill="x", padx=20, pady=20)
         
-        # Key bindings
         self.root.bind("<Return>", lambda e: self.confirm())
         self.list_box.bind("<Double-Button-1>", lambda e: self.confirm())
+        # Win32 Focus Hack: Grab focus from background
+        self.root.update_idletasks() # Ensure HWND is ready
+        hwnd = self.root.winfo_id()
+        force_focus(hwnd)
+        
+        # Internal Entry Focus: Focus to text field
+        self.root.after(150, search_entry.focus_set)
         
         self.update_list()
-        self.root.mainloop()
-        return self.selected_customer
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def update_list(self, *args):
         search_term = self.search_var.get().lower()
@@ -99,15 +131,9 @@ class CustomerOverlay:
         if not search_term:
             filtered = self.customers
         else:
-            # Fuzzy match across Name and Address
             choices = [f"{c['name']} | {c['address']} | {c['city']}" for c in self.customers]
             results = process.extract(search_term, choices, scorer=fuzz.partial_ratio, limit=10)
-            
-            # Reconstruct filtered list based on fuzzy scores
-            filtered = []
-            for text, score, idx in results:
-                if score > 30: # Minimum match threshold
-                    filtered.append(self.customers[idx])
+            filtered = [self.customers[idx] for text, score, idx in results if score > 30]
         
         for person in filtered:
             display_text = f"{person['name']} - {person['address']}, {person['city']}"
@@ -116,80 +142,95 @@ class CustomerOverlay:
     def confirm(self):
         selection = self.list_box.curselection()
         if selection:
-            # Retrieve the original index from the data tags (saved in the display order)
             display_text = self.list_box.get(selection[0])
-            # Find the actual customer object
             for c in self.customers:
                 if f"{c['name']} - {c['address']}, {c['city']}" == display_text:
                     self.selected_customer = c
                     break
-            self.root.destroy()
+            self.on_close()
 
-class ClawFileHandler(FileSystemEventHandler):
-    def __init__(self, customers):
-        self.customers = customers
+    def on_close(self):
+        self.root.destroy()
 
-    def on_created(self, event):
-        if event.is_directory or not event.src_path.lower().endswith(".txt"):
-            return
-            
-        file_path = pathlib.Path(event.src_path)
-        print(f"New print job detected: {file_path.name}")
-        self.process_file(file_path)
-
-    def process_file(self, file_path):
-        time.sleep(1) # Wait for write completion
+class ClawWatcherApp:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.withdraw() # Hide main root window
+        self.job_queue = queue.Queue()
+        self.customers = self.load_customers()
         
+        # Start background poll for queue
+        self.check_queue()
+        
+        # Start monitoring thread
+        self.thread = threading.Thread(target=self.start_monitoring, daemon=True)
+        self.thread.start()
+        
+    def load_customers(self):
         try:
-            # 1. Read input text
-            encodings = ["utf-16", "utf-8", "cp1252", "latin-1"]
-            text = None
-            for enc in encodings:
-                try:
-                    content = file_path.read_text(encoding=enc)
-                    if content.strip():
-                        print(f"Successfully read with {enc}")
-                        text = content
-                        break
-                except: continue
-            
-            if not text:
-                print(f"Failed to read {file_path}")
-                return
-
-            # 2. Trigger Overlay for Client selection
-            overlay = CustomerOverlay(self.customers)
-            print("Action required: Please select a customer in the overlay.")
-            customer = overlay.show(file_path.stem)
-            
-            if not customer:
-                print("No customer selected. Aborting PDF generation.")
-                return
-
-            # 3. Render PDF with Selected Customer
-            # Final filename format: YYYY_MM_DD-HH_MM-Name_name
-            timestamp = time.strftime("%Y_%m_%d-%H_%M")
-            safe_name = customer['name'].replace(" ", "_").replace("/", "-")
-            final_filename = f"{timestamp}-{safe_name}"
-            
-            self.create_pdf_with_selection(text, final_filename, customer)
-            
-            # 4. Archive
-            archive_path = ARCHIVE_DIR / file_path.name
-            if archive_path.exists():
-                archive_path = ARCHIVE_DIR / f"{file_path.stem}_{int(time.time())}{file_path.suffix}"
-            
-            file_path.replace(archive_path)
-            print(f"Completed and archived: {file_path.name}")
-            
+            with open(CUSTOMERS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
         except Exception as e:
-            print(f"Processing error: {e}")
+            print(f"Error loading customers: {e}")
+            return []
 
-    def create_pdf_with_selection(self, text, base_filename, customer):
+    def check_queue(self):
+        try:
+            while True:
+                job_path = self.job_queue.get_nowait()
+                self.process_job(job_path)
+        except queue.Empty:
+            pass
+        self.root.after(200, self.check_queue)
+
+    def process_job(self, file_path):
+        time.sleep(1) # File settling
+        
+        # Robust Reading
+        encodings = ["utf-16", "utf-8", "cp1252", "latin-1"]
+        text = None
+        for enc in encodings:
+            try:
+                content = file_path.read_text(encoding=enc)
+                if content.strip():
+                    text = content
+                    break
+            except: continue
+        
+        if not text:
+            print(f"Skipping empty file: {file_path}")
+            return
+
+        # Show Blocking Overlay
+        print(f"Processing {file_path.name} - Waiting for user selection...")
+        overlay = CustomerOverlay(self.root, self.customers, file_path)
+        self.root.wait_window(overlay.root)
+        
+        customer = overlay.selected_customer
+        if not customer:
+            print("Job cancelled by user.")
+            return
+
+        # Generate output filename
+        timestamp = time.strftime("%Y_%m_%d-%H_%M")
+        safe_name = customer['name'].replace(" ", "_").replace("/", "-")
+        final_filename = f"{timestamp}-{safe_name}.pdf"
+        
+        self.create_pdf(text, final_filename, customer)
+        
+        # Archive original
+        archive_path = ARCHIVE_DIR / file_path.name
+        if archive_path.exists():
+            archive_path = ARCHIVE_DIR / f"{file_path.stem}_{int(time.time())}{file_path.suffix}"
+        
+        file_path.replace(archive_path)
+        print(f"Done: {final_filename}")
+
+    def create_pdf(self, text, final_filename, customer):
         pdf = FPDF()
         pdf.add_page()
         
-        # Selected Customer Header
+        # Bold Header
         pdf.set_font("Helvetica", style="B", size=12)
         pdf.cell(0, 7, f"{customer['name']}", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", size=10)
@@ -200,29 +241,31 @@ class ClawFileHandler(FileSystemEventHandler):
         pdf.set_font("Courier", size=10)
         pdf.multi_cell(0, 5, text)
         
-        output_path = OUTPUT_DIR / f"{base_filename}.pdf"
+        output_path = OUTPUT_DIR / final_filename
         pdf.output(str(output_path))
-        print(f"Successfully generated: {output_path.name}")
 
-def start_watcher():
-    # Load Customers
-    with open(CUSTOMERS_FILE, 'r', encoding='utf-8') as f:
-        customers = json.load(f)
-    
-    event_handler = ClawFileHandler(customers)
-    observer = Observer()
-    observer.schedule(event_handler, str(WATCH_DIR), recursive=False)
-    
-    print(f"WATCHER ACTIVE - Listening in {WATCH_DIR}")
-    print("When a file appears, a selection overlay will pop up.")
-    
-    observer.start()
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+    def start_monitoring(self):
+        class Handler(FileSystemEventHandler):
+            def __init__(self, q):
+                self.q = q
+            def on_created(self, event):
+                if not event.is_directory and event.src_path.lower().endswith(".txt"):
+                    self.q.put(pathlib.Path(event.src_path))
+        
+        observer = Observer()
+        observer.schedule(Handler(self.job_queue), str(WATCH_DIR), recursive=False)
+        observer.start()
+        try:
+            while True:
+                time.sleep(1)
+        except:
+            observer.stop()
+        observer.join()
+
+    def run(self):
+        print(f"Watcher started on: {WATCH_DIR}")
+        self.root.mainloop()
 
 if __name__ == "__main__":
-    start_watcher()
+    app = ClawWatcherApp()
+    app.run()
