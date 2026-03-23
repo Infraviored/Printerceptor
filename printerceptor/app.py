@@ -51,7 +51,8 @@ class ClawWatcherApp:
             print(f"Überspringe unlesbare oder leere Datei: {file_path}")
             return
 
-        # 1. Show Customer Selector (Blocking)
+        # 1. Reload Database & Show Customer Selector (Blocking)
+        self.customers = self.load_customers() # RELOAD DB (USER REQUEST)
         print(f"Kunde auswählen für {file_path.name}...")
         overlay = CustomerOverlay(self.root, self.customers, file_path)
         self.root.wait_window(overlay.root)

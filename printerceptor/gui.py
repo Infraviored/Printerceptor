@@ -63,6 +63,10 @@ class CustomerOverlay:
         search_entry = tk.Entry(self.root, textvariable=self.search_var, bg="#333333", fg=fg_color, 
                                insertbackground="white", border=0, font=("Segoe UI", 18))
         search_entry.pack(fill="x", padx=30, pady=10)
+        
+        # KEYBOARD NAVIGATION (USER REQUEST)
+        search_entry.bind("<Down>", self.on_arrow_down)
+        search_entry.bind("<Up>", self.on_arrow_up)
 
         # Treeview for Tabular View
         style = ttk.Style()
@@ -137,9 +141,32 @@ class CustomerOverlay:
             for c in self.customers:
                 choices.append(f"{c.get('vorname','')} {c.get('nachname','')} {c.get('street','')} {c.get('city','')}")
             
-            # process.extract returns results already sorted by score DESC
-            results = process.extract(search_term, choices, scorer=fuzz.partial_ratio, limit=50)
-            self.filtered_customers = [self.customers[idx] for text, score, idx in results if score > 35]
+            # Compute fuzzy scores and apply prefix boost (USER REQUEST)
+            raw_results = process.extract(search_term, choices, scorer=fuzz.WRatio, limit=50)
+            
+            scored_customers = []
+            for text, score, idx in raw_results:
+                customer = self.customers[idx]
+                boosted_score = score
+                
+                # Prefix boost: If any name part starts with the search term
+                search_lower = search_term.lower()
+                vn = customer.get('vorname', '').lower()
+                nn = customer.get('nachname', '').lower()
+                org = customer.get('organization', '').lower()
+                
+                if nn.startswith(search_lower):
+                    boosted_score += 20
+                elif vn.startswith(search_lower):
+                    boosted_score += 15
+                elif org.startswith(search_lower):
+                    boosted_score += 10
+                    
+                scored_customers.append((customer, boosted_score))
+            
+            # Sort by boosted score DESC
+            scored_customers.sort(key=lambda x: x[1], reverse=True)
+            self.filtered_customers = [p for p, s in scored_customers if s > 35]
 
         # Clear and fill Treeview
         for item in self.tree.get_children():
@@ -159,6 +186,40 @@ class CustomerOverlay:
         if all_items:
             self.tree.selection_set(all_items[0])
             self.tree.focus(all_items[0])
+
+    def on_arrow_down(self, event):
+        items = self.tree.get_children()
+        if not items: return "break"
+        
+        current = self.tree.selection()
+        if not current:
+            self.tree.selection_set(items[0])
+            self.tree.focus(items[0])
+        else:
+            idx = self.tree.index(current[0])
+            if idx < len(items) - 1:
+                next_item = items[idx + 1]
+                self.tree.selection_set(next_item)
+                self.tree.focus(next_item)
+                self.tree.see(next_item)
+        return "break"
+
+    def on_arrow_up(self, event):
+        items = self.tree.get_children()
+        if not items: return "break"
+        
+        current = self.tree.selection()
+        if not current:
+            self.tree.selection_set(items[-1])
+            self.tree.focus(items[-1])
+        else:
+            idx = self.tree.index(current[0])
+            if idx > 0:
+                prev_item = items[idx - 1]
+                self.tree.selection_set(prev_item)
+                self.tree.focus(prev_item)
+                self.tree.see(prev_item)
+        return "break"
 
     def confirm(self):
         selection = self.tree.selection()
@@ -275,8 +336,8 @@ class AddCustomerDialog:
             
             if new_customers:
                 self.add_and_save(new_customers)
+                self.root.destroy() # Close window immediately (USER REQUEST)
                 messagebox.showinfo("Erfolg", f"{len(new_customers)} Kunden importiert.")
-                self.root.destroy()
             else:
                 messagebox.showwarning("Info", "Keine gültigen Kunden in der Datei gefunden.")
         except Exception as e:
