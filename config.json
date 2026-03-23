@@ -1,5 +1,0 @@
-{
-    "supported_formats": [".txt", ".pdf"],
-    "archive_original": true,
-    "fuzzy_threshold": 30
-}

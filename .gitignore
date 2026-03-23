@@ -9,9 +9,13 @@ ENV/
 
 # Project Specific
 claw/
+claw_*/
 output_pdfs/
 archive/
 temp_prints/
+*.txt
+*.pdf
+!requirements.txt
 
 # IDE
 .vscode/

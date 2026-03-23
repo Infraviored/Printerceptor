@@ -6,7 +6,7 @@ WATCH_DIR = pathlib.Path("claw").absolute()
 OUTPUT_DIR = pathlib.Path("output_pdfs").absolute()
 ARCHIVE_DIR = pathlib.Path("archive").absolute()
 CUSTOMERS_FILE = pathlib.Path("customers.json").absolute()
-USER_CONFIG_FILE = pathlib.Path("config.json").absolute()
+USER_CONFIG_FILE = pathlib.Path("config") / "config.json"
 
 def load_user_config():
     """
