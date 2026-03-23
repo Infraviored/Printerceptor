@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, ttk
 import csv
 import json
 import pathlib
@@ -14,8 +14,10 @@ class CustomerOverlay:
         self.file_path = job_file_path
         self.selected_customer = None
         self.search_var = None
-        self.list_box = None
-        self.filtered_customers = [] # Track currently shown list
+        self.tree = None
+        self.filtered_customers = [] 
+        self.sort_col = "Nachname"
+        self.sort_desc = False
         
         self.setup_ui()
         
@@ -28,15 +30,15 @@ class CustomerOverlay:
         accent_color = "#007acc"
         
         self.root.configure(bg=bg_color)
-        self.root.geometry("750x850") # Wide enough for full names and phone
+        self.root.geometry("900x850") # Wider for columns
         self.root.attributes("-topmost", True)
         
         # Center UI
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
-        x = (screen_width // 2) - (750 // 2)
+        x = (screen_width // 2) - (900 // 2)
         y = (screen_height // 2) - (850 // 2)
-        self.root.geometry(f"750x850+{x}+{y}")
+        self.root.geometry(f"900x850+{x}+{y}")
 
         # Header with Count and Import Button
         top_bar = tk.Frame(self.root, bg="#2d2d2d")
@@ -62,79 +64,107 @@ class CustomerOverlay:
                                insertbackground="white", border=0, font=("Segoe UI", 18))
         search_entry.pack(fill="x", padx=30, pady=10)
 
+        # Treeview for Tabular View
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview", background="#252526", foreground="white", 
+                        fieldbackground="#252526", borderwidth=0, font=("Segoe UI", 11), rowheight=30)
+        style.map("Treeview", background=[('selected', accent_color)])
+        style.configure("Treeview.Heading", background="#333333", foreground="white", relief="flat", font=("Segoe UI", 11, "bold"))
+
         frame = tk.Frame(self.root, bg=bg_color)
         frame.pack(fill="both", expand=True, padx=30, pady=20)
-        
-        # Größeres Listbox Font
-        self.list_box = tk.Listbox(frame, bg="#252526", fg=fg_color, font=("Segoe UI", 14), 
-                                  borderwidth=0, highlightthickness=0, selectbackground=accent_color)
-        self.list_box.pack(side="left", fill="both", expand=True)
-        
-        scrollbar = tk.Scrollbar(frame, orient="vertical", bg="#333333")
-        scrollbar.pack(side="right", fill="y")
-        self.list_box.config(yscrollcommand=scrollbar.set)
-        scrollbar.config(command=self.list_box.yview)
 
-        # Confirm Button (Groß)
+        columns = ("Nachname", "Vorname", "Adresse", "Telefon")
+        self.tree = ttk.Treeview(frame, columns=columns, show="headings", style="Treeview")
+        
+        for col in columns:
+            self.tree.heading(col, text=col, command=lambda c=col: self.sort_by(c))
+            self.tree.column(col, width=150)
+        
+        self.tree.column("Adresse", width=300) # Give more space to address
+        self.tree.pack(side="left", fill="both", expand=True)
+
+        scrollbar = tk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
+        scrollbar.pack(side="right", fill="y")
+        self.tree.configure(yscrollcommand=scrollbar.set)
+
+        # Confirm Button
         btn = tk.Button(self.root, text="Auswahl bestätigen (Enter)", bg=accent_color, fg="white", 
                         font=("Segoe UI", 16, "bold"), borderwidth=0, command=self.confirm)
         btn.pack(fill="x", padx=30, pady=30)
         
         self.root.bind("<Return>", lambda e: self.confirm())
-        self.list_box.bind("<Double-Button-1>", lambda e: self.confirm())
+        self.tree.bind("<Double-Button-1>", lambda e: self.confirm())
         
         # Focus Fixes
-        self.root.update_idletasks() # HWND ready
+        self.root.update_idletasks()
         force_focus(self.root.winfo_id())
         self.root.after(100, search_entry.focus_set)
         
         self.update_list()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def sort_by(self, col):
+        if self.sort_col == col:
+            self.sort_desc = not self.sort_desc
+        else:
+            self.sort_col = col
+            self.sort_desc = False
+        self.update_list()
+
     def update_list(self, *args):
         search_term = self.search_var.get().strip().lower()
-        self.list_box.delete(0, tk.END)
         
-        # Display helper for customers
-        def get_customer_string(c):
-            # Combine all available info for searching
-            elements = [
-                c.get('vorname', ''), 
-                c.get('nachname', ''), 
-                c.get('organization', ''), 
-                c.get('phone', ''),
-                c.get('city', ''),
-                c.get('street', ''),
-                c.get('zip', '')
-            ]
-            return " | ".join([str(e) for e in elements if e])
-
         if not search_term:
-            self.filtered_customers = self.customers
+            self.filtered_customers = list(self.customers)
+            
+            # Sorting logic (Only when NOT searching)
+            def sort_helper(value):
+                v = str(value).lower().strip()
+                return v if v else "\uffff"
+
+            key_map = {
+                "Nachname": lambda c: sort_helper(c.get('nachname', '')),
+                "Vorname": lambda c: sort_helper(c.get('vorname', '')),
+                "Adresse": lambda c: sort_helper(f"{c.get('street','')} {c.get('zip','')} {c.get('city','')}".strip()),
+                "Telefon": lambda c: sort_helper(c.get('phone', ''))
+            }
+            self.filtered_customers.sort(key=key_map[self.sort_col], reverse=self.sort_desc)
         else:
-            choices = [get_customer_string(c) for c in self.customers]
-            results = process.extract(search_term, choices, scorer=fuzz.partial_ratio, limit=20)
-            self.filtered_customers = [self.customers[idx] for text, score, idx in results if score > 20]
-        
+            # Fuzzy match only on name or address (USER REQUEST)
+            choices = []
+            for c in self.customers:
+                choices.append(f"{c.get('vorname','')} {c.get('nachname','')} {c.get('street','')} {c.get('city','')}")
+            
+            # process.extract returns results already sorted by score DESC
+            results = process.extract(search_term, choices, scorer=fuzz.partial_ratio, limit=50)
+            self.filtered_customers = [self.customers[idx] for text, score, idx in results if score > 35]
+
+        # Clear and fill Treeview
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+            
         for p in self.filtered_customers:
-            name = f"{p.get('vorname','')} {p.get('nachname','')}".strip()
-            org = f" ({p['organization']})" if p.get('organization') else ""
-            location = f" - {p.get('street','')}, {p.get('zip','')} {p.get('city','')}".strip(" - ,")
-            phone = f" [📞 {p['phone']}]" if p.get('phone') else ""
+            address = f"{p.get('street','')} {p.get('zip','')} {p.get('city','')}".strip()
+            self.tree.insert("", tk.END, values=(
+                p.get('nachname', ''),
+                p.get('vorname', ''),
+                address,
+                p.get('phone', '')
+            ))
             
-            display_text = f"{name}{org}{location}{phone}"
-            self.list_box.insert(tk.END, display_text)
-            
-        # Highlight top result
-        if self.list_box.size() > 0:
-            self.list_box.selection_clear(0, tk.END)
-            self.list_box.selection_set(0)
-            self.list_box.see(0)
+        # Auto-highlight top result
+        all_items = self.tree.get_children()
+        if all_items:
+            self.tree.selection_set(all_items[0])
+            self.tree.focus(all_items[0])
 
     def confirm(self):
-        selection = self.list_box.curselection()
+        selection = self.tree.selection()
         if selection:
-            self.selected_customer = self.filtered_customers[selection[0]]
+            item_idx = self.tree.index(selection[0])
+            self.selected_customer = self.filtered_customers[item_idx]
         elif len(self.filtered_customers) > 0:
             self.selected_customer = self.filtered_customers[0]
         
@@ -231,7 +261,6 @@ class AddCustomerDialog:
             with open(path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    # Map based on provided Google format and common fallbacks
                     customer = {
                         "vorname": row.get("First Name", row.get("vorname", row.get("Name", ""))),
                         "nachname": row.get("Last Name", row.get("nachname", "")),
@@ -241,12 +270,6 @@ class AddCustomerDialog:
                         "zip": row.get("Address 1 - Postal Code", row.get("zip", "")),
                         "city": row.get("Address 1 - City", row.get("city", row.get("Ort", "")))
                     }
-                    
-                    # Store everything we have (USER REQUEST)
-                    # We can store extra columns as generic metadata if they exist
-                    # For now, we've mapped the core ones. If other columns are needed, they stay in 'row' but we only save what's used.
-                    
-                    # Basic validation: must have some name or org
                     if any([customer["vorname"], customer["nachname"], customer["organization"]]):
                         new_customers.append(customer)
             

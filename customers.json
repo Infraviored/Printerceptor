@@ -43,14 +43,5 @@
         "street": "Schillerallee 44",
         "zip": "50667",
         "city": "Köln"
-    },
-    {
-        "vorname": "Florian",
-        "nachname": "Schneider",
-        "organization": "",
-        "phone": "",
-        "street": "Landsbergerstr. 29A",
-        "zip": "86946",
-        "city": "Issing"
     }
 ]
