@@ -69,6 +69,17 @@ def run_setup():
     if threshold.strip():
         config["fuzzy_threshold"] = int(threshold)
 
+    # SumatraPDF Path (for PDF printing)
+    print("\n--- PDF Druck-Engine ---")
+    current_sumatra = config.get("sumatra_path", "Keiner")
+    sumatra_input = input(f"SumatraPDF-Pfad (Aktuell: {current_sumatra}): ").strip()
+    if sumatra_input:
+        # Remove quotes if the user copied a path as "C:\path"
+        sumatra_input = sumatra_input.strip('"')
+        config["sumatra_path"] = sumatra_input
+    elif "sumatra_path" not in config:
+        print("WARNUNG: Kein SumatraPDF-Pfad gesetzt. PDF-Druck wird fehlschlagen!")
+
     save_config(config)
     print("\n[OK] Setup abgeschlossen und gespeichert.")
     print(f"Datei: {CONFIG_FILE.name} in Ordner /config/")
