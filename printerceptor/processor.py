@@ -55,18 +55,43 @@ def create_pdf(text, job_name, customer):
     Renders text and selected customer to a timestamped PDF.
     """
     timestamp = time.strftime("%Y_%m_%d-%H_%M")
-    safe_name = customer['name'].replace(" ", "_").replace("/", "-")
+    
+    # NEW: Handle separate first/last name
+    vorname = customer.get('vorname', '')
+    nachname = customer.get('nachname', '')
+    full_name = f"{vorname} {nachname}".strip()
+    org = customer.get('organization', '')
+    
+    safe_name = full_name.replace(" ", "_").replace("/", "-")
+    if not safe_name and org:
+        safe_name = org.replace(" ", "_").replace("/", "-")
+        
     final_filename = f"{timestamp}-{safe_name}.pdf"
     
     pdf = FPDF()
     pdf.add_page()
     
     # Bold Header
-    pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 7, f"{customer['name']}", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", style="B", size=14)
+    display_name = full_name
+    if org:
+        display_name += f" ({org})"
+    
+    pdf.cell(0, 7, display_name, new_x="LMARGIN", new_y="NEXT")
+    
     pdf.set_font("Helvetica", size=10)
-    pdf.cell(0, 5, f"{customer['address']}", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 5, f"{customer['city']}", new_x="LMARGIN", new_y="NEXT")
+    street = customer.get('street', '')
+    city_line = f"{customer.get('zip', '')} {customer.get('city', '')}".strip()
+    
+    if street:
+        pdf.cell(0, 5, street, new_x="LMARGIN", new_y="NEXT")
+    if city_line:
+        pdf.cell(0, 5, city_line, new_x="LMARGIN", new_y="NEXT")
+    
+    phone = customer.get('phone', '')
+    if phone:
+        pdf.set_font("Helvetica", style="I", size=9)
+        pdf.cell(0, 5, f"Tel: {phone}", new_x="LMARGIN", new_y="NEXT")
     
     pdf.ln(10)
     pdf.set_font("Courier", size=10)

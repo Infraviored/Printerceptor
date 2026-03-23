@@ -1,27 +1,56 @@
 [
     {
-        "name": "Dominic Hare",
-        "address": "Landsbergerstr. 29A",
-        "city": "86946 Issing"
+        "vorname": "Dominic",
+        "nachname": "Hare",
+        "organization": "",
+        "phone": "",
+        "street": "Landsbergerstr. 29A",
+        "zip": "86946",
+        "city": "Issing"
     },
     {
-        "name": "Anna Müller",
-        "address": "Rosenweg 5",
-        "city": "81373 München"
+        "vorname": "Anna",
+        "nachname": "Müller",
+        "organization": "",
+        "phone": "",
+        "street": "Rosenweg 5",
+        "zip": "81373",
+        "city": "München"
     },
     {
-        "name": "Stephan Meier",
-        "address": "Tulpenstrasse 12",
-        "city": "10115 Berlin"
+        "vorname": "Stephan",
+        "nachname": "Meier",
+        "organization": "",
+        "phone": "",
+        "street": "Tulpenstrasse 12",
+        "zip": "10115",
+        "city": "Berlin"
     },
     {
-        "name": "Karin Schmidt",
-        "address": "Bahnhofsplatz 1",
-        "city": "20095 Hamburg"
+        "vorname": "Karin",
+        "nachname": "Schmidt",
+        "organization": "",
+        "phone": "",
+        "street": "Bahnhofsplatz 1",
+        "zip": "20095",
+        "city": "Hamburg"
     },
     {
-        "name": "Lucas Weber",
-        "address": "Schillerallee 44",
-        "city": "50667 Köln"
+        "vorname": "Lucas",
+        "nachname": "Weber",
+        "organization": "",
+        "phone": "",
+        "street": "Schillerallee 44",
+        "zip": "50667",
+        "city": "Köln"
+    },
+    {
+        "vorname": "Florian",
+        "nachname": "Schneider",
+        "organization": "",
+        "phone": "",
+        "street": "Landsbergerstr. 29A",
+        "zip": "86946",
+        "city": "Issing"
     }
 ]
