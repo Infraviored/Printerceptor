@@ -32,7 +32,7 @@ def run_test_print():
     
     # 3. Trigger Print
     print("Sende Druckbefehl...")
-    success = silent_print_file(test_file, printer_name)
+    success = silent_print_file(test_file, printer_name, config.get("sumatra_path"))
     
     if success:
         print("\nBefehl gesendet. Bitte am Drucker prüfen.")

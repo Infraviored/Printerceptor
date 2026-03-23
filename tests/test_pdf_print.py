@@ -28,7 +28,7 @@ def test_pdf_print():
     pdf.output(str(test_pdf))
     
     print(f"Sende PDF-Druckbefehl für: {test_pdf.name}...")
-    success = silent_print_file(test_pdf, printer_name)
+    success = silent_print_file(test_pdf, printer_name, config.get("sumatra_path"))
     
     if success:
         print("\nBefehl gesendet. Falls kein Dialog kommt, ist alles OK.")

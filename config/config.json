@@ -9,5 +9,6 @@
     "secondary_printer": "clawPDF2",
     "bon_printer": "clawPDF2",
     "rechnung_printer": "clawPDF2",
-    "auto_print_bon": true
+    "auto_print_bon": true,
+    "sumatra_path": "D:\\Users\\florian\\repos_private\\maxtouch_printer\\sumatra\\SumatraPDF-3.6-64.exe"
 }

@@ -64,8 +64,9 @@ class ClawWatcherApp:
         # 2. AUTO-PRINT BON (Original)
         if self.user_settings.get("auto_print_bon", True):
             bon_printer = self.user_settings.get("bon_printer")
+            sumatra_path = self.user_settings.get("sumatra_path")
             if bon_printer:
-                silent_print_file(file_path, bon_printer)
+                silent_print_file(file_path, bon_printer, sumatra_path)
         else:
             print("Automatischer Bon-Druck ist deaktiviert.")
 
@@ -79,9 +80,10 @@ class ClawWatcherApp:
         
         if confirm_dialog.print_requested:
             rechnung_printer = self.user_settings.get("rechnung_printer")
+            sumatra_path = self.user_settings.get("sumatra_path")
             if rechnung_printer:
                 # Print the newly generated PDF
-                silent_print_file(processed_pdf_path, rechnung_printer)
+                silent_print_file(processed_pdf_path, rechnung_printer, sumatra_path)
             else:
                 print("Rechnungs-Drucker nicht konfiguriert.")
         

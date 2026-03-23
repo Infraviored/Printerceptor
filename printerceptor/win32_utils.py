@@ -2,6 +2,7 @@ import ctypes
 import pathlib
 import win32api
 import win32print
+import subprocess
 
 # Native Windows APIs
 user32 = ctypes.windll.user32
@@ -34,10 +35,10 @@ def force_focus(hwnd):
     except Exception as e:
         print(f"Win32 focus error: {e}")
 
-def silent_print_file(file_path, printer_name):
+def silent_print_file(file_path, printer_name, sumatra_path=None):
     """
     Triggers a silent print of a file to a specific Windows printer.
-    Uses 'printto' verb which handles the targeting.
+    Uses SumatraPDF for PDFs or 'printto' verb for other files.
     """
     try:
         if not printer_name:
@@ -45,10 +46,17 @@ def silent_print_file(file_path, printer_name):
             return False
             
         print(f"Drucke {file_path.name} auf '{printer_name}'...")
-        # Verb "printto" needs: file_path, printer_name
-        # format: ShellExecute(hwnd, verb, file_path, params, dir, show)
-        win32api.ShellExecute(0, "printto", str(file_path), f'"{printer_name}"', ".", 0)
-        return True
+        file_path = pathlib.Path(file_path) # Ensure it's a Path object
+        
+        # Use SumatraPDF for PDFs (much more reliable for silent printing)
+        if file_path.suffix.lower() == ".pdf" and sumatra_path:
+            cmd = [sumatra_path, "-print-to", printer_name, "-silent", str(file_path)]
+            subprocess.run(cmd, check=True)
+            return True
+        else:
+            # Fallback to verb "printto" for TXT etc. Or if sumatra_path missing
+            win32api.ShellExecute(0, "printto", str(file_path), f'"{printer_name}"', ".", 0)
+            return True
     except Exception as e:
         print(f"Fehler beim Drucken auf {printer_name}: {e}")
         return False
