@@ -1,0 +1,27 @@
+[
+    {
+        "name": "Dominic Hare",
+        "address": "Landsbergerstr. 29A",
+        "city": "86946 Issing"
+    },
+    {
+        "name": "Anna Müller",
+        "address": "Rosenweg 5",
+        "city": "81373 München"
+    },
+    {
+        "name": "Stephan Meier",
+        "address": "Tulpenstrasse 12",
+        "city": "10115 Berlin"
+    },
+    {
+        "name": "Karin Schmidt",
+        "address": "Bahnhofsplatz 1",
+        "city": "20095 Hamburg"
+    },
+    {
+        "name": "Lucas Weber",
+        "address": "Schillerallee 44",
+        "city": "50667 Köln"
+    }
+]
