@@ -4,7 +4,10 @@
         ".pdf"
     ],
     "archive_original": true,
-    "fuzzy_threshold": 30,
-    "original_printer": "Microsoft Print to PDF",
-    "secondary_printer": "Microsoft Print to PDF"
+    "fuzzy_threshold": 20,
+    "original_printer": "clawPDF2",
+    "secondary_printer": "clawPDF2",
+    "bon_printer": "clawPDF2",
+    "rechnung_printer": "clawPDF2",
+    "auto_print_bon": true
 }

@@ -1,21 +1,25 @@
 import pathlib
 import json
 
-# Internal Paths
-WATCH_DIR = pathlib.Path("claw").absolute()
-OUTPUT_DIR = pathlib.Path("output_pdfs").absolute()
-ARCHIVE_DIR = pathlib.Path("archive").absolute()
+# Base Data Directory
+DATA_DIR = pathlib.Path("data").absolute()
+
+# Internal Paths - All moved into the 'data' folder
+BON_INPUT_DIR = DATA_DIR / "bon_input"
+RECHNUNG_OUTPUT_DIR = DATA_DIR / "rechnung_output"
+ARCHIVE_DIR = DATA_DIR / "archive"
 CUSTOMERS_FILE = pathlib.Path("customers.json").absolute()
 USER_CONFIG_FILE = pathlib.Path("config") / "config.json"
 
 def load_user_config():
     """
-    Load user-defined settings from the root config.json.
+    Load user-defined settings from the config/config.json.
     """
     default_config = {
-        "supported_formats": [".txt"],
+        "supported_formats": [".txt", ".pdf"],
         "archive_original": True,
-        "fuzzy_threshold": 30
+        "fuzzy_threshold": 30,
+        "auto_print_bon": True
     }
     
     if USER_CONFIG_FILE.exists():
@@ -29,6 +33,7 @@ def load_user_config():
     return default_config
 
 def setup_directories():
-    WATCH_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    BON_INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    RECHNUNG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)

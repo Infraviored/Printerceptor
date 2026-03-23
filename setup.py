@@ -3,7 +3,7 @@ import json
 import pathlib
 import os
 
-# Configuration Paths - Moved to config subdirectory
+# Configuration Paths - config subdirectory
 CONFIG_DIR = pathlib.Path("config")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
@@ -17,7 +17,8 @@ def load_config():
     return {
         "supported_formats": [".txt", ".pdf"],
         "archive_original": True,
-        "fuzzy_threshold": 30
+        "fuzzy_threshold": 30,
+        "auto_print_bon": True
     }
 
 def save_config(config):
@@ -43,19 +44,28 @@ def run_setup():
             print(f"[{i}] {name}")
 
         try:
-            p1_idx = input(f"\nHaupt-Drucker Index (Aktuell: {config.get('original_printer', 'Keiner')}): ")
+            p1_idx = input(f"\nBon-Drucker Index (Aktuell: {config.get('bon_printer', 'Keiner')}): ")
             if p1_idx.strip():
-                config["original_printer"] = printers[int(p1_idx)]
+                config["bon_printer"] = printers[int(p1_idx)]
                 
-            p2_idx = input(f"Zweit-Drucker Index (Aktuell: {config.get('secondary_printer', 'Keiner')}): ")
+            p2_idx = input(f"Rechnungs-Drucker Index (Aktuell: {config.get('rechnung_printer', 'Keiner')}): ")
             if p2_idx.strip():
-                config["secondary_printer"] = printers[int(p2_idx)]
+                config["rechnung_printer"] = printers[int(p2_idx)]
         except (ValueError, IndexError):
             print("Ungültige Eingabe - Drucker-Einstellungen nicht geändert.")
     
-    # 2. Add future settings hooks here
-    print("\n--- Weitere Einstellungen ---")
-    threshold = input(f"Fuzzy-Suche Empfindlichkeit (0-100, Aktuell: {config.get('fuzzy_threshold', 30)}): ")
+    # 2. Automation Settings
+    print("\n--- Automatisierung ---")
+    
+    # Bon (Original) automatisch drucken
+    auto_bon = input(f"Eingang (Bon) automatisch auf Bon-Drucker drucken? (j/n, Aktuell: {'j' if config.get('auto_print_bon', True) else 'n'}): ").lower()
+    if auto_bon == 'j' or auto_bon == '':
+        config["auto_print_bon"] = True
+    elif auto_bon == 'n':
+        config["auto_print_bon"] = False
+
+    # Fuzzy Search Threshold
+    threshold = input(f"Fuzzy-Suche Empfindlichkeit (0-100, Aktuell: {config.get('fuzzy_threshold', 20)}): ")
     if threshold.strip():
         config["fuzzy_threshold"] = int(threshold)
 

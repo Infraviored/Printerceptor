@@ -8,9 +8,7 @@ venv/
 ENV/
 
 # Project Specific
-claw/
-claw_*/
-output_pdfs/
+data/
 archive/
 temp_prints/
 *.txt

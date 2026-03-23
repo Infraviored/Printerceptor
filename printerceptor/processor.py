@@ -2,7 +2,7 @@ import time
 import pathlib
 from fpdf import FPDF
 from pypdf import PdfReader
-from .config import OUTPUT_DIR, ARCHIVE_DIR
+from .config import RECHNUNG_OUTPUT_DIR, ARCHIVE_DIR
 
 def extract_text(file_path):
     """
@@ -72,7 +72,7 @@ def create_pdf(text, job_name, customer):
     pdf.set_font("Courier", size=10)
     pdf.multi_cell(0, 5, text)
     
-    output_path = OUTPUT_DIR / final_filename
+    output_path = RECHNUNG_OUTPUT_DIR / final_filename
     pdf.output(str(output_path))
     return final_filename
 

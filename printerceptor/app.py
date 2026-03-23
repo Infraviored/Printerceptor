@@ -7,7 +7,7 @@ import tkinter as tk
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from .config import WATCH_DIR, CUSTOMERS_FILE, setup_directories, load_user_config
+from .config import BON_INPUT_DIR, RECHNUNG_OUTPUT_DIR, CUSTOMERS_FILE, setup_directories, load_user_config
 from .processor import extract_text, create_pdf, archive_job
 from .gui import CustomerOverlay, PrintConfirmationDialog
 from .win32_utils import silent_print_file
@@ -61,26 +61,29 @@ class ClawWatcherApp:
             print("Vorgangsabbruch durch Benutzer.")
             return
 
-        # 2. AUTO-PRINT ORIGINAL (Silent)
-        original_printer = self.user_settings.get("original_printer")
-        if original_printer:
-            silent_print_file(file_path, original_printer)
+        # 2. AUTO-PRINT BON (Original)
+        if self.user_settings.get("auto_print_bon", True):
+            bon_printer = self.user_settings.get("bon_printer")
+            if bon_printer:
+                silent_print_file(file_path, bon_printer)
+        else:
+            print("Automatischer Bon-Druck ist deaktiviert.")
 
-        # 3. GENERATE REFORMATTED PDF
+        # 3. GENERATE REFORMATTED PDF (Rechnung)
         final_pdf_path = create_pdf(text, file_path.stem, customer)
-        processed_pdf_path = pathlib.Path("output_pdfs") / final_pdf_path
+        processed_pdf_path = RECHNUNG_OUTPUT_DIR / final_pdf_path
         
         # 4. ASK: RECHNUNG DRUCKEN?
         confirm_dialog = PrintConfirmationDialog(self.root)
         self.root.wait_window(confirm_dialog.root)
         
         if confirm_dialog.print_requested:
-            secondary_printer = self.user_settings.get("secondary_printer")
-            if secondary_printer:
+            rechnung_printer = self.user_settings.get("rechnung_printer")
+            if rechnung_printer:
                 # Print the newly generated PDF
-                silent_print_file(processed_pdf_path, secondary_printer)
+                silent_print_file(processed_pdf_path, rechnung_printer)
             else:
-                print("Sekundär-Drucker nicht konfiguriert.")
+                print("Rechnungs-Drucker nicht konfiguriert.")
         
         # 5. Archive the original raw file
         if self.user_settings.get("archive_original", True):
@@ -102,7 +105,7 @@ class ClawWatcherApp:
                         self.q.put(pathlib.Path(event.src_path))
         
         observer = Observer()
-        observer.schedule(Handler(self.job_queue, formats), str(WATCH_DIR), recursive=False)
+        observer.schedule(Handler(self.job_queue, formats), str(BON_INPUT_DIR), recursive=False)
         observer.start()
         try:
             while True:
@@ -112,6 +115,6 @@ class ClawWatcherApp:
         observer.join()
 
     def run(self):
-        print(f"Printerceptor modular gestartet. Verzeichnis: {WATCH_DIR}...")
-        print(f"Formate: {', '.join(self.user_settings.get('supported_formats', ['.txt']))}")
+        print(f"Printerceptor modular gestartet. Verzeichnis: {BON_INPUT_DIR}...")
+        print(f"Formate: {', '.join(self.user_settings.get('supported_formats', ['.txt', '.pdf']))}")
         self.root.mainloop()
